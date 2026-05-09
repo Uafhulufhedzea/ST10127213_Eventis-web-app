@@ -5,16 +5,20 @@ namespace Eventis_web_app.Services;
 
 public class BlobStorageService
 {
-    private readonly BlobServiceClient _blobServiceClient;
+    private readonly string _connectionString;
+    private BlobServiceClient? _blobServiceClient;
 
-    public BlobStorageService(BlobServiceClient blobServiceClient)
+    public BlobStorageService(IConfiguration configuration)
     {
-        _blobServiceClient = blobServiceClient;
+        _connectionString = configuration["AzureBlobStorage:ConnectionString"]
+            ?? throw new InvalidOperationException("AzureBlobStorage:ConnectionString is not configured.");
     }
+
+    private BlobServiceClient Client => _blobServiceClient ??= new BlobServiceClient(_connectionString);
 
     public async Task<string> UploadImageAsync(string containerName, IFormFile file)
     {
-        var containerClient = _blobServiceClient.GetBlobContainerClient(containerName);
+        var containerClient = Client.GetBlobContainerClient(containerName);
         await containerClient.CreateIfNotExistsAsync(PublicAccessType.Blob);
 
         var extension = Path.GetExtension(file.FileName);
@@ -43,7 +47,7 @@ public class BlobStorageService
         var containerName = segments[0];
         var blobName = segments[1];
 
-        var containerClient = _blobServiceClient.GetBlobContainerClient(containerName);
+        var containerClient = Client.GetBlobContainerClient(containerName);
         var blobClient = containerClient.GetBlobClient(blobName);
         await blobClient.DeleteIfExistsAsync();
     }
