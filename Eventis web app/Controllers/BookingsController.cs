@@ -19,10 +19,23 @@ namespace Eventis_web_app.Controllers
         }
 
         // GET: Bookings
-        public async Task<IActionResult> Index()
+        public async Task<IActionResult> Index(string? searchString)
         {
-            var eventisContext = _context.Bookings.Include(b => b.Event).Include(b => b.Venue);
-            return View(await eventisContext.ToListAsync());
+            ViewData["CurrentSearch"] = searchString;
+
+            var bookings = _context.Bookings
+                .Include(b => b.Event)
+                .Include(b => b.Venue)
+                .AsQueryable();
+
+            if (!string.IsNullOrEmpty(searchString))
+            {
+                bookings = bookings.Where(b =>
+                    b.BookingId.ToString().Contains(searchString) ||
+                    b.Event.EventName.Contains(searchString));
+            }
+
+            return View(await bookings.ToListAsync());
         }
 
         // GET: Bookings/Details/5
@@ -48,8 +61,8 @@ namespace Eventis_web_app.Controllers
         // GET: Bookings/Create
         public IActionResult Create()
         {
-            ViewData["EventId"] = new SelectList(_context.Events, "EventId", "EventId");
-            ViewData["VenueId"] = new SelectList(_context.Venues, "VenueId", "VenueId");
+            ViewData["EventId"] = new SelectList(_context.Events, "EventId", "EventName");
+            ViewData["VenueId"] = new SelectList(_context.Venues, "VenueId", "VenueName");
             return View();
         }
 
@@ -62,13 +75,27 @@ namespace Eventis_web_app.Controllers
         {
             if (ModelState.IsValid)
             {
+                // Check for double booking: same venue on the same date
+                var conflict = await _context.Bookings.AnyAsync(b =>
+                    b.VenueId == booking.VenueId &&
+                    b.BookingDate.HasValue && booking.BookingDate.HasValue &&
+                    b.BookingDate.Value.Date == booking.BookingDate.Value.Date);
+
+                if (conflict)
+                {
+                    ModelState.AddModelError("", "This venue is already booked on the selected date. Please choose a different date or venue.");
+                    ViewData["EventId"] = new SelectList(_context.Events, "EventId", "EventName", booking.EventId);
+                    ViewData["VenueId"] = new SelectList(_context.Venues, "VenueId", "VenueName", booking.VenueId);
+                    return View(booking);
+                }
+
                 booking.BookingId = Guid.NewGuid();
                 _context.Add(booking);
                 await _context.SaveChangesAsync();
                 return RedirectToAction(nameof(Index));
             }
-            ViewData["EventId"] = new SelectList(_context.Events, "EventId", "EventId", booking.EventId);
-            ViewData["VenueId"] = new SelectList(_context.Venues, "VenueId", "VenueId", booking.VenueId);
+            ViewData["EventId"] = new SelectList(_context.Events, "EventId", "EventName", booking.EventId);
+            ViewData["VenueId"] = new SelectList(_context.Venues, "VenueId", "VenueName", booking.VenueId);
             return View(booking);
         }
 
@@ -85,8 +112,8 @@ namespace Eventis_web_app.Controllers
             {
                 return NotFound();
             }
-            ViewData["EventId"] = new SelectList(_context.Events, "EventId", "EventId", booking.EventId);
-            ViewData["VenueId"] = new SelectList(_context.Venues, "VenueId", "VenueId", booking.VenueId);
+            ViewData["EventId"] = new SelectList(_context.Events, "EventId", "EventName", booking.EventId);
+            ViewData["VenueId"] = new SelectList(_context.Venues, "VenueId", "VenueName", booking.VenueId);
             return View(booking);
         }
 
@@ -104,6 +131,21 @@ namespace Eventis_web_app.Controllers
 
             if (ModelState.IsValid)
             {
+                // Check for double booking: same venue on the same date (excluding this booking)
+                var conflict = await _context.Bookings.AnyAsync(b =>
+                    b.BookingId != booking.BookingId &&
+                    b.VenueId == booking.VenueId &&
+                    b.BookingDate.HasValue && booking.BookingDate.HasValue &&
+                    b.BookingDate.Value.Date == booking.BookingDate.Value.Date);
+
+                if (conflict)
+                {
+                    ModelState.AddModelError("", "This venue is already booked on the selected date. Please choose a different date or venue.");
+                    ViewData["EventId"] = new SelectList(_context.Events, "EventId", "EventName", booking.EventId);
+                    ViewData["VenueId"] = new SelectList(_context.Venues, "VenueId", "VenueName", booking.VenueId);
+                    return View(booking);
+                }
+
                 try
                 {
                     _context.Update(booking);
@@ -122,8 +164,8 @@ namespace Eventis_web_app.Controllers
                 }
                 return RedirectToAction(nameof(Index));
             }
-            ViewData["EventId"] = new SelectList(_context.Events, "EventId", "EventId", booking.EventId);
-            ViewData["VenueId"] = new SelectList(_context.Venues, "VenueId", "VenueId", booking.VenueId);
+            ViewData["EventId"] = new SelectList(_context.Events, "EventId", "EventName", booking.EventId);
+            ViewData["VenueId"] = new SelectList(_context.Venues, "VenueId", "VenueName", booking.VenueId);
             return View(booking);
         }
 

@@ -1,3 +1,5 @@
+using Azure.Storage.Blobs;
+using Eventis_web_app.Services;
 using Microsoft.EntityFrameworkCore;
 
 
@@ -9,6 +11,11 @@ builder.Services.AddControllersWithViews();
 // Replace 'YourProjectNamespace' with the actual namespace in your Models folder
 builder.Services.AddDbContext<Eventis_web_app.Models.EventisContext>(options =>
     options.UseSqlServer(builder.Configuration.GetConnectionString("DefaultConnection")));
+
+// Register Azure Blob Storage service
+builder.Services.AddSingleton(_ =>
+    new BlobServiceClient(builder.Configuration["AzureBlobStorage:ConnectionString"]));
+builder.Services.AddScoped<BlobStorageService>();
 
 
 

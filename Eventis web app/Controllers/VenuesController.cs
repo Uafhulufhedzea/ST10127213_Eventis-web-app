@@ -6,16 +6,21 @@ using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Mvc.Rendering;
 using Microsoft.EntityFrameworkCore;
 using Eventis_web_app.Models;
+using Eventis_web_app.Services;
 
 namespace Eventis_web_app.Controllers
 {
     public class VenuesController : Controller
     {
         private readonly EventisContext _context;
+        private readonly BlobStorageService _blobService;
+        private readonly string _containerName;
 
-        public VenuesController(EventisContext context)
+        public VenuesController(EventisContext context, BlobStorageService blobService, IConfiguration configuration)
         {
             _context = context;
+            _blobService = blobService;
+            _containerName = configuration["AzureBlobStorage:VenueImagesContainer"] ?? "venue-images";
         }
 
         // GET: Venues
@@ -53,10 +58,14 @@ namespace Eventis_web_app.Controllers
         // For more details, see http://go.microsoft.com/fwlink/?LinkId=317598.
         [HttpPost]
         [ValidateAntiForgeryToken]
-        public async Task<IActionResult> Create([Bind("VenueId,VenueName,Location,Capacity,ImageUrl")] Venue venue)
+        public async Task<IActionResult> Create([Bind("VenueId,VenueName,Location,Capacity")] Venue venue, IFormFile? imageFile)
         {
             if (ModelState.IsValid)
             {
+                if (imageFile != null && imageFile.Length > 0)
+                {
+                    venue.ImageUrl = await _blobService.UploadImageAsync(_containerName, imageFile);
+                }
                 _context.Add(venue);
                 await _context.SaveChangesAsync();
                 return RedirectToAction(nameof(Index));
@@ -85,7 +94,7 @@ namespace Eventis_web_app.Controllers
         // For more details, see http://go.microsoft.com/fwlink/?LinkId=317598.
         [HttpPost]
         [ValidateAntiForgeryToken]
-        public async Task<IActionResult> Edit(int id, [Bind("VenueId,VenueName,Location,Capacity,ImageUrl")] Venue venue)
+        public async Task<IActionResult> Edit(int id, [Bind("VenueId,VenueName,Location,Capacity")] Venue venue, IFormFile? imageFile)
         {
             if (id != venue.VenueId)
             {
@@ -96,6 +105,23 @@ namespace Eventis_web_app.Controllers
             {
                 try
                 {
+                    var existingVenue = await _context.Venues.AsNoTracking().FirstOrDefaultAsync(v => v.VenueId == id);
+
+                    if (imageFile != null && imageFile.Length > 0)
+                    {
+                        // Delete old image if exists
+                        if (existingVenue?.ImageUrl != null)
+                        {
+                            await _blobService.DeleteImageAsync(existingVenue.ImageUrl);
+                        }
+                        venue.ImageUrl = await _blobService.UploadImageAsync(_containerName, imageFile);
+                    }
+                    else
+                    {
+                        // Keep existing image URL
+                        venue.ImageUrl = existingVenue?.ImageUrl;
+                    }
+
                     _context.Update(venue);
                     await _context.SaveChangesAsync();
                 }
@@ -141,6 +167,19 @@ namespace Eventis_web_app.Controllers
             var venue = await _context.Venues.FindAsync(id);
             if (venue != null)
             {
+                // Check for active bookings
+                var hasBookings = await _context.Bookings.AnyAsync(b => b.VenueId == id);
+                if (hasBookings)
+                {
+                    TempData["ErrorMessage"] = "Cannot delete this venue because it has active bookings. Please remove the bookings first.";
+                    return RedirectToAction(nameof(Delete), new { id });
+                }
+
+                // Delete image from Azure Blob Storage
+                if (!string.IsNullOrEmpty(venue.ImageUrl))
+                {
+                    await _blobService.DeleteImageAsync(venue.ImageUrl);
+                }
                 _context.Venues.Remove(venue);
             }
 

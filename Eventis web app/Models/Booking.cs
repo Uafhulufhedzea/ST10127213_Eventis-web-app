@@ -13,13 +13,19 @@ public partial class Booking
     [Column("BookingID")]
     public Guid BookingId { get; set; }
 
+    [Required(ErrorMessage = "Please select an event.")]
     [Column("EventID")]
+    [Display(Name = "Event")]
     public int EventId { get; set; }
 
+    [Required(ErrorMessage = "Please select a venue.")]
     [Column("VenueID")]
+    [Display(Name = "Venue")]
     public int VenueId { get; set; }
 
+    [Required(ErrorMessage = "Booking date is required.")]
     [Column(TypeName = "datetime")]
+    [Display(Name = "Booking Date")]
     public DateTime? BookingDate { get; set; }
 
     [StringLength(50)]

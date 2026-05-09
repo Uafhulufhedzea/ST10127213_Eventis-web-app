@@ -6,16 +6,21 @@ using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Mvc.Rendering;
 using Microsoft.EntityFrameworkCore;
 using Eventis_web_app.Models;
+using Eventis_web_app.Services;
 
 namespace Eventis_web_app.Controllers
 {
     public class EventsController : Controller
     {
         private readonly EventisContext _context;
+        private readonly BlobStorageService _blobService;
+        private readonly string _containerName;
 
-        public EventsController(EventisContext context)
+        public EventsController(EventisContext context, BlobStorageService blobService, IConfiguration configuration)
         {
             _context = context;
+            _blobService = blobService;
+            _containerName = configuration["AzureBlobStorage:EventImagesContainer"] ?? "event-images";
         }
 
         // GET: Events
@@ -53,10 +58,14 @@ namespace Eventis_web_app.Controllers
         // For more details, see http://go.microsoft.com/fwlink/?LinkId=317598.
         [HttpPost]
         [ValidateAntiForgeryToken]
-        public async Task<IActionResult> Create([Bind("EventId,EventName,Description,StartDate,EndDate")] Event @event)
+        public async Task<IActionResult> Create([Bind("EventId,EventName,Description,StartDate,EndDate")] Event @event, IFormFile? imageFile)
         {
             if (ModelState.IsValid)
             {
+                if (imageFile != null && imageFile.Length > 0)
+                {
+                    @event.ImageUrl = await _blobService.UploadImageAsync(_containerName, imageFile);
+                }
                 _context.Add(@event);
                 await _context.SaveChangesAsync();
                 return RedirectToAction(nameof(Index));
@@ -85,7 +94,7 @@ namespace Eventis_web_app.Controllers
         // For more details, see http://go.microsoft.com/fwlink/?LinkId=317598.
         [HttpPost]
         [ValidateAntiForgeryToken]
-        public async Task<IActionResult> Edit(int id, [Bind("EventId,EventName,Description,StartDate,EndDate")] Event @event)
+        public async Task<IActionResult> Edit(int id, [Bind("EventId,EventName,Description,StartDate,EndDate")] Event @event, IFormFile? imageFile)
         {
             if (id != @event.EventId)
             {
@@ -96,6 +105,23 @@ namespace Eventis_web_app.Controllers
             {
                 try
                 {
+                    var existingEvent = await _context.Events.AsNoTracking().FirstOrDefaultAsync(e => e.EventId == id);
+
+                    if (imageFile != null && imageFile.Length > 0)
+                    {
+                        // Delete old image if exists
+                        if (existingEvent?.ImageUrl != null)
+                        {
+                            await _blobService.DeleteImageAsync(existingEvent.ImageUrl);
+                        }
+                        @event.ImageUrl = await _blobService.UploadImageAsync(_containerName, imageFile);
+                    }
+                    else
+                    {
+                        // Keep existing image URL
+                        @event.ImageUrl = existingEvent?.ImageUrl;
+                    }
+
                     _context.Update(@event);
                     await _context.SaveChangesAsync();
                 }
@@ -141,6 +167,19 @@ namespace Eventis_web_app.Controllers
             var @event = await _context.Events.FindAsync(id);
             if (@event != null)
             {
+                // Check for active bookings
+                var hasBookings = await _context.Bookings.AnyAsync(b => b.EventId == id);
+                if (hasBookings)
+                {
+                    TempData["ErrorMessage"] = "Cannot delete this event because it has active bookings. Please remove the bookings first.";
+                    return RedirectToAction(nameof(Delete), new { id });
+                }
+
+                // Delete image from Azure Blob Storage
+                if (!string.IsNullOrEmpty(@event.ImageUrl))
+                {
+                    await _blobService.DeleteImageAsync(@event.ImageUrl);
+                }
                 _context.Events.Remove(@event);
             }
 
