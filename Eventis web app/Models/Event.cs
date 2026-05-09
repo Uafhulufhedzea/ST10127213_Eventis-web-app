@@ -2,6 +2,7 @@
 using System.Collections.Generic;
 using System.ComponentModel.DataAnnotations;
 using System.ComponentModel.DataAnnotations.Schema;
+using Microsoft.AspNetCore.Mvc.ModelBinding.Validation;
 using Microsoft.EntityFrameworkCore;
 
 namespace Eventis_web_app.Models;
@@ -36,5 +37,6 @@ public partial class Event
     public string? ImageUrl { get; set; }
 
     [InverseProperty("Event")]
+    [ValidateNever]
     public virtual ICollection<Booking> Bookings { get; set; } = new List<Booking>();
 }

@@ -2,6 +2,7 @@
 using System.Collections.Generic;
 using System.ComponentModel.DataAnnotations;
 using System.ComponentModel.DataAnnotations.Schema;
+using Microsoft.AspNetCore.Mvc.ModelBinding.Validation;
 using Microsoft.EntityFrameworkCore;
 
 namespace Eventis_web_app.Models;
@@ -34,9 +35,11 @@ public partial class Booking
 
     [ForeignKey("EventId")]
     [InverseProperty("Bookings")]
+    [ValidateNever]
     public virtual Event Event { get; set; } = null!;
 
     [ForeignKey("VenueId")]
     [InverseProperty("Bookings")]
+    [ValidateNever]
     public virtual Venue Venue { get; set; } = null!;
 }
