@@ -13,8 +13,9 @@ builder.Services.AddDbContext<Eventis_web_app.Models.EventisContext>(options =>
     options.UseSqlServer(builder.Configuration.GetConnectionString("DefaultConnection")));
 
 // Register Azure Blob Storage service
+var azureBlobConnectionString = builder.Configuration.GetSection("AzureBlobStorage")["ConnectionString"];
 builder.Services.AddSingleton(_ =>
-    new BlobServiceClient(builder.Configuration["AzureBlobStorage:ConnectionString"]));
+    new BlobServiceClient(azureBlobConnectionString));
 builder.Services.AddScoped<BlobStorageService>();
 
 
