@@ -28,4 +28,10 @@ public class BookingSummaryView
     
     [Display(Name = "End Date")]
     public DateTime EndDate { get; set; }
+
+    public bool IsAvailable { get; set; }
+    public int? EventTypeId { get; set; }
+    
+    [Display(Name = "Event Type")]
+    public string? EventTypeName { get; set; }
 }

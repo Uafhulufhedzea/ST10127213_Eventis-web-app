@@ -1,54 +1,130 @@
 ﻿@model IEnumerable<Eventis_web_app.Models.BookingSummaryView>
 
 @{
-    ViewData["Title"] = "Bookings";
+    ViewData["Title"] = "Bookings Admin Dashboard";
 }
 
-<h1>Bookings</h1>
+<h1>Bookings Management Platform</h1>
 
 <p>
     <a asp-action="Create" class="btn btn-primary">Create New Booking</a>
 </p>
 
-<form asp-action="Index" method="get" class="mb-3">
-    <div class="input-group" style="max-width: 500px;">
-        <input type="text" name="searchString" value="@ViewData["CurrentSearch"]" class="form-control" placeholder="Search by Booking ID or Event Name..." />
-        <button type="submit" class="btn btn-outline-secondary">Search</button>
-        @if (ViewData["CurrentSearch"] != null && !string.IsNullOrEmpty(ViewData["CurrentSearch"].ToString()))
-        {
-            <a asp-action="Index" class="btn btn-outline-danger">Clear</a>
-        }
-    </div>
-</form>
+<!-- Advanced Multi-Parametric Filter Form Panel -->
+<div class="card mb-4 bg-light shadow-sm">
+    <div class="card-body">
+        <h5 class="card-title mb-3">🔍 Advanced Search & Filtering Console</h5>
+        <form asp-action="Index" method="get">
+            <div class="row g-3">
+                <!-- Text Keyword Search Field -->
+                <div class="col-md-4">
+                    <label class="form-label font-monospace small text-uppercase fw-bold text-muted">Keyword Lookup</label>
+                    <input type="text" name="searchString" value="@ViewData["CurrentSearch"]" class="form-control" placeholder="Search by Booking ID or Event Name..." />
+                </div>
 
-<table class="table table-striped table-hover">
-    <thead>
+                <!-- Event Type Relational Dropdown Menu Selection Field -->
+                <div class="col-md-3">
+                    <label class="form-label font-monospace small text-uppercase fw-bold text-muted">Event Category</label>
+                    <select name="eventTypeId" class="form-select" asp-items="@(ViewData["EventTypesList"] as SelectList)">
+                        <option value="">-- All Categories --</option>
+                    </select>
+                </div>
+
+                <!-- Venue Operational Capacity Availability Flag Toggle Selector -->
+                <div class="col-md-3">
+                    <label class="form-label font-monospace small text-uppercase fw-bold text-muted">Venue Status</label>
+                    <select name="isAvailable" class="form-select">
+                        <option value="">-- All Statuses --</option>
+                        <option value="true" selected="@(ViewData["SelectedAvailability"]?.ToString() == "True")">Active / Available Only</option>
+                        <option value="false" selected="@(ViewData["SelectedAvailability"]?.ToString() == "False")">Maintenance / Out-of-Service</option>
+                    </select>
+                </div>
+
+                <!-- Structural Grid Formatting Padding Placement Box -->
+                <div class="col-md-2 d-none d-md-block"></div>
+
+                <!-- Operational Reservation Timeline Start Selection Picker -->
+                <div class="col-md-4">
+                    <label class="form-label font-monospace small text-uppercase fw-bold text-muted">Booking Horizon Start</label>
+                    <input type="date" name="startDate" value="@ViewData["SelectedStartDate"]" class="form-control" />
+                </div>
+
+                <!-- Operational Reservation Timeline Horizon End Selection Picker -->
+                <div class="col-md-4">
+                    <label class="form-label font-monospace small text-uppercase fw-bold text-muted">Booking Horizon End</label>
+                    <input type="date" name="endDate" value="@ViewData["SelectedEndDate"]" class="form-control" />
+                </div>
+
+                <!-- Interactive Query Execution Operational Trigger Buttons Control Box Layout -->
+                <div class="col-md-4 d-flex align-items-end gap-2">
+                    <button type="submit" class="btn btn-dark w-100">Apply Filter Metrics</button>
+                    @if (ViewData["CurrentSearch"] != null || ViewData["SelectedEventType"] != null || ViewData["SelectedStartDate"] != null || ViewData["SelectedEndDate"] != null || ViewData["SelectedAvailability"] != null)
+                    {
+                        <a asp-action="Index" class="btn btn-outline-danger w-50">Reset Panel</a>
+                    }
+                </div>
+            </div>
+        </form>
+    </div>
+</div>
+
+<!-- Data Content Grid Matrix Board Display Layer -->
+<table class="table table-striped table-hover align-middle border shadow-sm">
+    <thead class="table-dark">
         <tr>
             <th>Booking ID</th>
             <th>Booking Date</th>
-            <th>Event Name</th>
-            <th>Venue Name</th>
+            <th>Event Details</th>
+            <th>Venue Assignment</th>
+            <th>Venue Capacity Status</th>
             <th>Status</th>
-            <th>Actions</th>
+            <th class="text-center">System Actions</th>
         </tr>
     </thead>
     <tbody>
         @foreach (var item in Model)
         {
             <tr>
-                <td>@item.BookingId</td>
-                <td>@item.BookingDate.ToString("yyyy-MM-dd")</td>
-                <td>@item.EventName</td>
-                <td>@item.VenueName</td>
+                <td class="font-monospace small text-muted">@(item.BookingId.ToString().Length > 8 ? item.BookingId.ToString().Substring(0, 8) + "..." : item.BookingId.ToString())</td>
+                <td class="fw-semibold">@item.BookingDate.ToString("yyyy-MM-dd")</td>
                 <td>
-                    <span class="badge @(item.Status == "Confirmed" ? "bg-success" : "bg-secondary")">
+                    <span class="d-block fw-bold">@item.EventName</span>
+                    <span class="badge bg-info text-dark xsmall">@item.EventTypeName</span>
+                </td>
+                <td>
+                    <span class="d-block">@item.VenueName</span>
+                    <span class="text-muted small">📍 @item.Location</span>
+                </td>
+                <td>
+                    <span class="d-block small">Limit: <strong>@item.Capacity</strong> slots</span>
+                    @if (item.IsAvailable)
+                    {
+                        <span class="badge bg-success-subtle text-success border border-success border-opacity-25 small p-1">Active</span>
+                    }
+                    else
+                    {
+                        <span class="badge bg-danger-subtle text-danger border border-danger border-opacity-25 small p-1">Offline</span>
+                    }
+                </td>
+                <td>
+                    <span class="badge @(item.Status == "Confirmed" ? "bg-success" : "bg-secondary") text-uppercase p-2">
                         @item.Status
                     </span>
                 </td>
                 <td>
-                    <a asp-action="Edit" asp-route-id="@item.BookingId" class="btn btn-sm btn-warning">Edit</a> |
-                    <a asp-action="Details" asp-route-id="@item.BookingId" class="btn btn-sm btn-info">Details</a> |
-                    <a asp-action="Delete" asp-route-id="@item.BookingId" class="btn btn-sm btn-danger">Delete</a>
+                    <div class="d-flex justify-content-center gap-1">
+                        <a asp-action="Edit" asp-route-id="@item.BookingId" class="btn btn-sm btn-warning fw-bold">Edit</a>
+                        <a asp-action="Details" asp-route-id="@item.BookingId" class="btn btn-sm btn-info text-white fw-bold">Details</a>
+                        <a asp-action="Delete" asp-route-id="@item.BookingId" class="btn btn-sm btn-danger fw-bold">Delete</a>
+                    </div>
+                </td>
+            </tr>
+        }
+        @if (!Model.Any())
+        {
+            <tr>
+                <td colspan="7" class="text-center p-5 text-muted font-monospace fs-5">
+                    No matching booking metrics match the active filter criteria.
                 </td>
             </tr>
         }

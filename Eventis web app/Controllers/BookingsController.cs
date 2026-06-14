@@ -18,22 +18,56 @@ namespace Eventis_web_app.Controllers
             _context = context;
         }
 // GET: Bookings
-public async Task<IActionResult> Index(string? searchString) //Task 2 changes.
+public async Task<IActionResult> Index(string? searchString, int? eventTypeId, DateTime? startDate, DateTime? endDate, bool? isAvailable)
 {
+    // Preserve active filters in ViewData for the UI form state
     ViewData["CurrentSearch"] = searchString;
+    ViewData["SelectedEventType"] = eventTypeId;
+    ViewData["SelectedStartDate"] = startDate?.ToString("yyyy-MM-dd");
+    ViewData["SelectedEndDate"] = endDate?.ToString("yyyy-MM-dd");
+    ViewData["SelectedAvailability"] = isAvailable;
 
-    // Fulfills Part C: Querying the registered database view instead of raw tables
-    var bookingsView = _context.BookingSummaryViews.AsQueryable();
+    // Populates the Event Type filter dropdown menu option list
+    ViewData["EventTypesList"] = new SelectList(await _context.EventTypes.ToListAsync(), "EventTypeId", "TypeName", eventTypeId);
 
+    // Core Query running against the registered Database View
+    var bookingsQuery = _context.BookingSummaryViews.AsQueryable();
+
+    // 1. Text Search Filter (Booking ID or Event Name)
     if (!string.IsNullOrEmpty(searchString))
     {
-        bookingsView = bookingsView.Where(b =>
+        bookingsQuery = bookingsQuery.Where(b =>
             b.BookingId.ToString().Contains(searchString) ||
             b.EventName.Contains(searchString));
     }
 
-    return View(await bookingsView.ToListAsync());
+    // 2. Event Type Dropdown Filter
+    if (eventTypeId.HasValue)
+    {
+        bookingsQuery = bookingsQuery.Where(b => b.EventTypeId == eventTypeId.Value);
+    }
+
+    // 3. Start Date Filter (Booking occurs on or after this date)
+    if (startDate.HasValue)
+    {
+        bookingsQuery = bookingsQuery.Where(b => b.BookingDate >= startDate.Value.Date);
+    }
+
+    // 4. End Date Filter (Booking occurs on or before this date)
+    if (endDate.HasValue)
+    {
+        bookingsQuery = bookingsQuery.Where(b => b.BookingDate <= endDate.Value.Date);
+    }
+
+    // 5. Venue Availability Toggle Filter
+    if (isAvailable.HasValue)
+    {
+        bookingsQuery = bookingsQuery.Where(b => b.IsAvailable == isAvailable.Value);
+    }
+
+    return View(await bookingsQuery.ToListAsync());
 }
+
 
         // GET: Bookings/Details/5
         public async Task<IActionResult> Details(Guid? id)

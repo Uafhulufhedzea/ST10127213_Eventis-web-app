@@ -32,6 +32,11 @@ public partial class Venue
     [Unicode(false)]
     public string? ImageUrl { get; set; }
 
+    [Required(ErrorMessage = "Availability status is required.")]
+    [Column("IsAvailable")]
+    [Display(Name = "Available for Bookings")]
+    public bool IsAvailable { get; set; } = true;
+
     [InverseProperty("Venue")]
     [ValidateNever]
     public virtual ICollection<Booking> Bookings { get; set; } = new List<Booking>();

@@ -23,11 +23,14 @@ public partial class EventisContext : DbContext
 
     public virtual DbSet<BookingSummaryView> BookingSummaryViews { get; set; }
 
-protected override void OnConfiguring(DbContextOptionsBuilder optionsBuilder) //new task 2 fix
-{
-    // Plaintext credentials completely purged for source code protection.
-    // The connection string is now safely injected via Program.cs.
-}
+    public virtual DbSet<EventType> EventTypes { get; set; }
+
+    protected override void OnConfiguring(DbContextOptionsBuilder optionsBuilder)
+    {
+        // Plaintext credentials completely purged for source code protection.
+        // The connection string is safely injected via Program.cs.
+    }
+
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
         modelBuilder.Entity<Booking>(entity =>
@@ -55,9 +58,16 @@ protected override void OnConfiguring(DbContextOptionsBuilder optionsBuilder) //
         modelBuilder.Entity<Venue>(entity =>
         {
             entity.HasKey(e => e.VenueId).HasName("PK__Venues__3C57E5D205077F32");
+            entity.Property(e => e.Capacity).IsRequired();
+            entity.Property(e => e.IsAvailable).HasDefaultValue(true);
         });
 
-        // Add this new mapping block right here:
+        modelBuilder.Entity<EventType>(entity =>
+        {
+            entity.HasKey(e => e.EventTypeId);
+            entity.Property(e => e.TypeName).HasMaxLength(100).IsUnicode(false);
+        });
+
         modelBuilder.Entity<BookingSummaryView>(entity =>
         {
             entity.HasNoKey();
