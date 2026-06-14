@@ -19,7 +19,8 @@ public class BlobStorageService
     public async Task<string> UploadImageAsync(string containerName, IFormFile file)
     {
         var containerClient = Client.GetBlobContainerClient(containerName);
-        await containerClient.CreateIfNotExistsAsync(PublicAccessType.Blob);
+       await containerClient.CreateIfNotExistsAsync(PublicAccessType.None);
+
 
         var extension = Path.GetExtension(file.FileName);
         var blobName = $"{Guid.NewGuid()}{extension}";

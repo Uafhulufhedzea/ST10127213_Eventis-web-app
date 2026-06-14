@@ -17,26 +17,23 @@ namespace Eventis_web_app.Controllers
         {
             _context = context;
         }
+// GET: Bookings
+public async Task<IActionResult> Index(string? searchString) //Task 2 changes.
+{
+    ViewData["CurrentSearch"] = searchString;
 
-        // GET: Bookings
-        public async Task<IActionResult> Index(string? searchString)
-        {
-            ViewData["CurrentSearch"] = searchString;
+    // Fulfills Part C: Querying the registered database view instead of raw tables
+    var bookingsView = _context.BookingSummaryViews.AsQueryable();
 
-            var bookings = _context.Bookings
-                .Include(b => b.Event)
-                .Include(b => b.Venue)
-                .AsQueryable();
+    if (!string.IsNullOrEmpty(searchString))
+    {
+        bookingsView = bookingsView.Where(b =>
+            b.BookingId.ToString().Contains(searchString) ||
+            b.EventName.Contains(searchString));
+    }
 
-            if (!string.IsNullOrEmpty(searchString))
-            {
-                bookings = bookings.Where(b =>
-                    b.BookingId.ToString().Contains(searchString) ||
-                    b.Event.EventName.Contains(searchString));
-            }
-
-            return View(await bookings.ToListAsync());
-        }
+    return View(await bookingsView.ToListAsync());
+}
 
         // GET: Bookings/Details/5
         public async Task<IActionResult> Details(Guid? id)
@@ -69,35 +66,41 @@ namespace Eventis_web_app.Controllers
         // POST: Bookings/Create
         // To protect from overposting attacks, enable the specific properties you want to bind to.
         // For more details, see http://go.microsoft.com/fwlink/?LinkId=317598.
-        [HttpPost]
-        [ValidateAntiForgeryToken]
-        public async Task<IActionResult> Create([Bind("BookingId,EventId,VenueId,BookingDate,Status")] Booking booking)
+      [HttpPost]
+[ValidateAntiForgeryToken]
+public async Task<IActionResult> Create([Bind("BookingId,EventId,VenueId,BookingDate,Status")] Booking booking)
+{
+    if (ModelState.IsValid)
+    {
+        // FIX 4 IMPLEMENTATION: Force a clean midnight date timestamp layout
+        if (booking.BookingDate.HasValue)
         {
-            if (ModelState.IsValid)
-            {
-                // Check for double booking: same venue on the same date
-                var conflict = await _context.Bookings.AnyAsync(b =>
-                    b.VenueId == booking.VenueId &&
-                    b.BookingDate.HasValue && booking.BookingDate.HasValue &&
-                    b.BookingDate.Value.Date == booking.BookingDate.Value.Date);
+            booking.BookingDate = booking.BookingDate.Value.Date;
+        }
 
-                if (conflict)
-                {
-                    ModelState.AddModelError("", "This venue is already booked on the selected date. Please choose a different date or venue.");
-                    ViewData["EventId"] = new SelectList(_context.Events, "EventId", "EventName", booking.EventId);
-                    ViewData["VenueId"] = new SelectList(_context.Venues, "VenueId", "VenueName", booking.VenueId);
-                    return View(booking);
-                }
+        // Check for double booking: same venue on the same standardized date
+        var conflict = await _context.Bookings.AnyAsync(b =>
+            b.VenueId == booking.VenueId &&
+            b.BookingDate == booking.BookingDate);
 
-                booking.BookingId = Guid.NewGuid();
-                _context.Add(booking);
-                await _context.SaveChangesAsync();
-                return RedirectToAction(nameof(Index));
-            }
+        if (conflict)
+        {
+            ModelState.AddModelError("", "This venue is already booked on the selected date. Please choose a different date or venue.");
             ViewData["EventId"] = new SelectList(_context.Events, "EventId", "EventName", booking.EventId);
             ViewData["VenueId"] = new SelectList(_context.Venues, "VenueId", "VenueName", booking.VenueId);
             return View(booking);
         }
+
+        booking.BookingId = Guid.NewGuid();
+        _context.Add(booking);
+        await _context.SaveChangesAsync();
+        return RedirectToAction(nameof(Index));
+    }
+    ViewData["EventId"] = new SelectList(_context.Events, "EventId", "EventName", booking.EventId);
+    ViewData["VenueId"] = new SelectList(_context.Venues, "VenueId", "VenueName", booking.VenueId);
+    return View(booking);
+}
+
 
         // GET: Bookings/Edit/5
         public async Task<IActionResult> Edit(Guid? id)
@@ -121,53 +124,52 @@ namespace Eventis_web_app.Controllers
         // To protect from overposting attacks, enable the specific properties you want to bind to.
         // For more details, see http://go.microsoft.com/fwlink/?LinkId=317598.
         [HttpPost]
-        [ValidateAntiForgeryToken]
-        public async Task<IActionResult> Edit(Guid id, [Bind("BookingId,EventId,VenueId,BookingDate,Status")] Booking booking)
+[ValidateAntiForgeryToken]
+public async Task<IActionResult> Edit(Guid id, [Bind("BookingId,EventId,VenueId,BookingDate,Status")] Booking booking)
+{
+    if (id != booking.BookingId)
+    {
+        return NotFound();
+    }
+
+    if (ModelState.IsValid)
+    {
+        // FIX 4 IMPLEMENTATION: Enforce standardized midnight values on modifications
+        if (booking.BookingDate.HasValue)
         {
-            if (id != booking.BookingId)
-            {
-                return NotFound();
-            }
+            booking.BookingDate = booking.BookingDate.Value.Date;
+        }
 
-            if (ModelState.IsValid)
-            {
-                // Check for double booking: same venue on the same date (excluding this booking)
-                var conflict = await _context.Bookings.AnyAsync(b =>
-                    b.BookingId != booking.BookingId &&
-                    b.VenueId == booking.VenueId &&
-                    b.BookingDate.HasValue && booking.BookingDate.HasValue &&
-                    b.BookingDate.Value.Date == booking.BookingDate.Value.Date);
+        // Check for double booking: exclude this current booking ID from conflict matching
+        var conflict = await _context.Bookings.AnyAsync(b =>
+            b.BookingId != booking.BookingId &&
+            b.VenueId == booking.VenueId &&
+            b.BookingDate == booking.BookingDate);
 
-                if (conflict)
-                {
-                    ModelState.AddModelError("", "This venue is already booked on the selected date. Please choose a different date or venue.");
-                    ViewData["EventId"] = new SelectList(_context.Events, "EventId", "EventName", booking.EventId);
-                    ViewData["VenueId"] = new SelectList(_context.Venues, "VenueId", "VenueName", booking.VenueId);
-                    return View(booking);
-                }
-
-                try
-                {
-                    _context.Update(booking);
-                    await _context.SaveChangesAsync();
-                }
-                catch (DbUpdateConcurrencyException)
-                {
-                    if (!BookingExists(booking.BookingId))
-                    {
-                        return NotFound();
-                    }
-                    else
-                    {
-                        throw;
-                    }
-                }
-                return RedirectToAction(nameof(Index));
-            }
+        if (conflict)
+        {
+            ModelState.AddModelError("", "This venue is already booked on the selected date. Please choose a different date or venue.");
             ViewData["EventId"] = new SelectList(_context.Events, "EventId", "EventName", booking.EventId);
             ViewData["VenueId"] = new SelectList(_context.Venues, "VenueId", "VenueName", booking.VenueId);
             return View(booking);
         }
+
+        try
+        {
+            _context.Update(booking);
+            await _context.SaveChangesAsync();
+        }
+        catch (DbUpdateConcurrencyException)
+        {
+            if (!BookingExists(booking.BookingId)) { return NotFound(); } else { throw; }
+        }
+        return RedirectToAction(nameof(Index));
+    }
+    ViewData["EventId"] = new SelectList(_context.Events, "EventId", "EventName", booking.EventId);
+    ViewData["VenueId"] = new SelectList(_context.Venues, "VenueId", "VenueName", booking.VenueId);
+    return View(booking);
+}
+
 
         // GET: Bookings/Delete/5
         public async Task<IActionResult> Delete(Guid? id)

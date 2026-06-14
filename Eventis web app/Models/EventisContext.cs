@@ -21,10 +21,13 @@ public partial class EventisContext : DbContext
 
     public virtual DbSet<Venue> Venues { get; set; }
 
-    protected override void OnConfiguring(DbContextOptionsBuilder optionsBuilder)
-#warning To protect potentially sensitive information in your connection string, you should move it out of source code. You can avoid scaffolding the connection string by using the Name= syntax to read it from configuration - see https://go.microsoft.com/fwlink/?linkid=2131148. For more guidance on storing connection strings, see https://go.microsoft.com/fwlink/?LinkId=723263.
-        => optionsBuilder.UseSqlServer("Server=tcp:eventis.database.windows.net,1433;Initial Catalog=eventis;User ID=st10127213;Password=UaFulu!24;Encrypt=True;TrustServerCertificate=True;");
+    public virtual DbSet<BookingSummaryView> BookingSummaryViews { get; set; }
 
+protected override void OnConfiguring(DbContextOptionsBuilder optionsBuilder) //new task 2 fix
+{
+    // Plaintext credentials completely purged for source code protection.
+    // The connection string is now safely injected via Program.cs.
+}
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
         modelBuilder.Entity<Booking>(entity =>
@@ -52,6 +55,13 @@ public partial class EventisContext : DbContext
         modelBuilder.Entity<Venue>(entity =>
         {
             entity.HasKey(e => e.VenueId).HasName("PK__Venues__3C57E5D205077F32");
+        });
+
+        // Add this new mapping block right here:
+        modelBuilder.Entity<BookingSummaryView>(entity =>
+        {
+            entity.HasNoKey();
+            entity.ToView("vw_BookingDetails");
         });
 
         OnModelCreatingPartial(modelBuilder);
